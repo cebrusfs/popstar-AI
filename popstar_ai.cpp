@@ -112,19 +112,16 @@ const int DIRATION[4][2] = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
 //const char charset[] = ".rgbyp";
 const int ASCII_COLOR[] = {40, 41, 42, 44, 43, 45};
 
-
+/*
 typedef vector<PII> GROUP;
 #define PACK(x, y) (MP(x, y))
 #define FST(x) ((x).first)
 #define SND(x) ((x).second)
-
-/*
+*/
 typedef vector<int> GROUP;
 #define PACK(x, y) ((x) * 128 + (y))
 #define FST(x) ((x) / 128)
 #define SND(x) ((x) % 128)
-*/
-
 
 typedef pair<long long, long long> HASH;
 
@@ -133,7 +130,7 @@ bool cmp(const GROUP& a, const GROUP& b)
     return a.size() < b.size();
 }
 
-bool move_down(char col[])
+inline bool move_down(char col[])
 {
     int real_r = MAX - 1;
 
@@ -227,12 +224,9 @@ class Game {
             else
                 mp[real_c++] = mp[c];
         }
-
+        assert((real_c < MAX and empty_col != NULL) or real_c == MAX);
         for (int c = real_c; c < MAX; ++c)
-        {
-            assert(empty_col != NULL);
             mp[c] = empty_col;
-        }
 
         return group.size() * group.size() * 5;
     }
@@ -301,11 +295,10 @@ class Game {
 
             while (true)
             {
-                auto gs = get_groups();
+                const auto gs = get_groups();
                 if (gs.empty()) break;
 
-                sort(gs.begin(), gs.end(), cmp);
-                const auto& p = gs.front();
+                const auto& p = *min_element(gs.begin(), gs.end(), cmp);
                 score += eliminate(p);
             }
             score += cal_end();
@@ -396,17 +389,18 @@ class Game {
 
     int parallel_solve(int limit, GROUP *op = NULL)
     {
-        hash_table.clear();
         const auto& gs = get_groups();
 
         int best = -1;
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(dynamic)
         for (int i = 0; i < (int)gs.size(); ++i)
         {
-            Game temp_game = *this;
-
             const auto& g = gs[i];
             assert(g.size() >= 2);
+
+            Game temp_game = *this;
+            temp_game.hash_table.clear();
+
 
             int sc = 0;
             sc += temp_game.eliminate(g);
@@ -432,12 +426,15 @@ class Game {
 
   private:
     // bfs
+    /*
     long long vis_flag = 0;
     long long vis[MAX][MAX];
+    */
 
-    GROUP bfs(int x, int y)
+    GROUP bfs(int x, int y, bool vis[MAX][MAX], int vis_flag) const
     {
         GROUP q;
+        q.reserve(32);
 
         int fd = 0;
         q.emplace_back(PACK(x, y));
@@ -463,18 +460,22 @@ class Game {
         return q;
     }
 
-    vector<GROUP> get_groups(bool all=false)
+    vector<GROUP> get_groups(bool all=false) const
     {
         vector<GROUP> ret;
-        ++vis_flag;
+        ret.reserve(128);
+
+        bool vis[MAX][MAX];
+        memset(vis, 0, sizeof(vis));
+        int vis_flag = 1;
 
         for (int c = MAX - 1; c >= 0; --c)
             for (int r = 0; r < MAX; ++r)
                 if(mp[c][r] != EMPTY and vis[c][r] != vis_flag)
                 {
-                    const auto& group = bfs(c, r);
+                    const auto& group = bfs(c, r, vis, vis_flag);
                     if (all or group.size() >= 2)
-                        ret.PB(group);
+                        ret.emplace_back(move(group));
                 }
         return ret;
     }
@@ -500,7 +501,7 @@ int main()
 {
     Game game;
 
-    srand(514);
+    srand(514514);
     game.generate();
 
     int score = 0;
@@ -514,8 +515,9 @@ int main()
         game.pretty_print();
 
         GROUP action;
+
         //int predict = game.solve(0, 5 + max(game.step - 10, 0), &action);
-        int predict = game.parallel_solve(5 + max(game.step - 10, 0), &action);
+        int predict = game.parallel_solve(5 + max(game.step - 8, 0), &action);
 
         clock_gettime(CLOCK_MONOTONIC, &finish);
 
