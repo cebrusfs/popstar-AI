@@ -109,7 +109,7 @@ const int EMPTY = 0;
 
 const int DIRATION[4][2] = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
 
-//const char charset[] = ".rgbyp";
+const char SYMBOL_SET[] = ".rgbyp";
 const int ASCII_COLOR[] = {40, 41, 42, 44, 43, 45};
 
 /*
@@ -171,6 +171,58 @@ class Game {
             for (int c = 0; c < MAX; ++c)
                 raw[0][c][r] = 1 + rand() % COLOR_MAX;
 
+        for (int c = 0; c < MAX; ++c)
+            history[0][c] = raw[0][c];
+
+        mp = history[0];
+    }
+
+    void input()
+    {
+        for (int r = 0; r < MAX; ++r)
+            for (int c = 0; c < MAX; ++c)
+            {
+                char ch;
+                scanf(" %c", &ch);
+                auto ptr = strchr(SYMBOL_SET, ch);
+
+                if (ptr == NULL)
+                {
+                    printf("char: %c (%d)\n", ch, ch);
+                    assert(false);
+                }
+                raw[0][c][r] = ptr - SYMBOL_SET;
+            }
+
+
+        step = 0;
+        for (int c = 0; c < MAX; ++c)
+            history[0][c] = raw[0][c];
+
+        mp = history[0];
+    }
+    void file_input(char buf[])
+    {
+        FILE* f = fopen(buf, "r");
+        assert(f != NULL);
+        for (int r = 0; r < MAX; ++r)
+            for (int c = 0; c < MAX; ++c)
+            {
+                char ch;
+                fscanf(f, " %c", &ch);
+                auto ptr = strchr(SYMBOL_SET, ch);
+
+                if (ptr == NULL)
+                {
+                    printf("char: %c (%d)\n", ch, ch);
+                    assert(false);
+                }
+                raw[0][c][r] = ptr - SYMBOL_SET;
+            }
+        fclose(f);
+
+
+        step = 0;
         for (int c = 0; c < MAX; ++c)
             history[0][c] = raw[0][c];
 
@@ -497,12 +549,34 @@ class Game {
 };
 
 
-int main()
+int main(int argc, char *argv[])
 {
     Game game;
+    srand(time(NULL));
 
-    srand(514514);
-    game.generate();
+    if (argc == 2)
+    {
+        if (strcmp(argv[1], "-") == 0)
+        {
+            srand(514514);
+            game.generate();
+        }
+        else
+        {
+            game.file_input(argv[1]);
+        }
+    }
+    else
+    {
+        game.input();
+    }
+
+    int depth = 5;
+    if (getenv("depth") != NULL)
+    {
+        depth = atoi(getenv("depth"));
+    }
+
 
     int score = 0;
     while (true)
@@ -517,7 +591,7 @@ int main()
         GROUP action;
 
         //int predict = game.solve(0, 5 + max(game.step - 10, 0), &action);
-        int predict = game.parallel_solve(5 + max(game.step - 8, 0), &action);
+        int predict = game.parallel_solve(depth + max(game.step - 8, 0), &action);
 
         clock_gettime(CLOCK_MONOTONIC, &finish);
 
