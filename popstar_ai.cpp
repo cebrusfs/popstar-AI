@@ -144,7 +144,8 @@ inline bool move_down(char col[])
     return real_r == MAX - 1;
 }
 
-
+GROUP global_best_actions[MAX*MAX];
+int global_best_score = 0;
 
 class Game {
   public:
@@ -158,9 +159,13 @@ class Game {
 
     map<HASH, int> hash_table;
 
+    GROUP actions[MAX*MAX];
+    int history_score[MAX*MAX];
+
     Game () {
         step = 0;
         mp = NULL;
+        history_score[0] = 0;
     }
 
     void generate()
@@ -179,6 +184,7 @@ class Game {
 
     void input()
     {
+        printf("[*] Get map from stdin\n");
         for (int r = 0; r < MAX; ++r)
             for (int c = 0; c < MAX; ++c)
             {
@@ -203,6 +209,8 @@ class Game {
     }
     void file_input(char buf[])
     {
+        printf("[*] Get map from file: %s\n", buf);
+
         FILE* f = fopen(buf, "r");
         assert(f != NULL);
         for (int r = 0; r < MAX; ++r)
@@ -229,10 +237,17 @@ class Game {
         mp = history[0];
     }
 
+    int currect_score() const
+    {
+        return history_score[step];
+    }
+
     int eliminate(const GROUP& group)
     {
         bool used[MAX];
         memset(used, false, sizeof(used));
+
+        int add = group.size() * group.size() * 5;
 
         for (const auto& p : group)
             used[FST(p)] = true;
@@ -254,6 +269,8 @@ class Game {
             }
 
         // copied, and step forward!
+        actions[step] = group;
+        history_score[step + 1] = currect_score() + add;
         step += 1;
         mp = history[step];
 
@@ -280,7 +297,7 @@ class Game {
         for (int c = real_c; c < MAX; ++c)
             mp[c] = empty_col;
 
-        return group.size() * group.size() * 5;
+        return add;
     }
 
     void recover(int to_step)
@@ -289,20 +306,23 @@ class Game {
         mp = history[step];
     }
 
-    void pretty_print() const
+    void pretty_print(const GROUP &g = GROUP()) const
     {
         for (int r = 0; r < MAX; ++r)
         {
             for (int c = 0; c < MAX; ++c)
             {
-                int hight = 1;
+                bool choosed = false;
+                for (const auto& idx : g)
+                    if (FST(idx) == c and SND(idx) == r)
+                        choosed = true;
+
                 int color = ASCII_COLOR[(int) mp[c][r]];
 
-                printf("\x1b[%d;%dm  \x1b[m", hight, color);
+                printf("\x1b[1;%dm%s\x1b[m", color, choosed ? ".." : "  ");
             }
             printf("\n");
         }
-        printf("\n");
     }
 
     int cal_end() const
@@ -324,61 +344,60 @@ class Game {
         // random walk
         for (int i = 0; i < RANDOM_TIME; ++i)
         {
-            int score = 0;
-
-            while (true)
-            {
-                const auto& gs = get_groups();
-                if (gs.empty()) break;
-
-                const auto& p = gs[rand() % gs.size()];
-                score += eliminate(p);
-            }
-            score += cal_end();
-
-            best = max(best, score);
-
-            recover(currect_step);
-        }
-
-        // greedy choose smallest
-        do {
-            int score = 0;
-
             while (true)
             {
                 const auto gs = get_groups();
                 if (gs.empty()) break;
 
                 const auto& p = *min_element(gs.begin(), gs.end(), cmp);
-                score += eliminate(p);
+                eliminate(p);
             }
-            score += cal_end();
+            int score = currect_score() + cal_end();
 
             best = max(best, score);
+
+            if (score > global_best_score)
+            {
+                #pragma omp critical
+                {
+                    global_best_score = score;
+                    for (int i = 0; i < step; ++i)
+                        global_best_actions[i] = actions[i];
+                    global_best_actions[step].clear();
+                }
+            }
+
+            recover(currect_step);
+        }
+
+        // greedy choose smallest
+        do
+        {
+            while (true)
+            {
+                const auto gs = get_groups();
+                if (gs.empty()) break;
+
+                const auto& p = *min_element(gs.begin(), gs.end(), cmp);
+                eliminate(p);
+            }
+            int score = currect_score() + cal_end();
+            best = max(best, score);
+
+            if (score > global_best_score)
+            {
+                #pragma omp critical
+                {
+                    global_best_score = score;
+                    for (int i = 0; i < step; ++i)
+                        global_best_actions[i] = actions[i];
+                    global_best_actions[step].clear();
+                }
+            }
 
             recover(currect_step);
 
         } while (false);
-
-        /*
-        //bad
-        {
-            int cnt[6];
-            memset(cnt, 0, sizeof(cnt));
-            for (const auto& g: get_groups(true))
-            {
-                const auto& p = g.front();
-                cnt[(int)mp[p.first][p.second]] += g.size();
-            }
-            int ans = 0;
-            for (int i = 1; i < 6; ++i)
-                ans += cnt[i] * cnt[i] * 5;
-
-            ans += 2000;
-
-            dump(ans, best);
-        }*/
 
         return best;
     }
@@ -414,13 +433,11 @@ class Game {
             {
                 assert(g.size() >= 2);
 
-                int sc1 = 0, sc2 = 0;
-                sc1 += eliminate(g);
-                sc2 += solve(dep + 1, limit);
+                eliminate(g);
+                int sc = solve(dep + 1, limit);
 
                 recover(currect_step);
 
-                int sc = sc1 + sc2;
                 if (sc > best)
                 {
                     best = sc;
@@ -453,10 +470,8 @@ class Game {
             Game temp_game = *this;
             temp_game.hash_table.clear();
 
-
-            int sc = 0;
-            sc += temp_game.eliminate(g);
-            sc += temp_game.solve(1, limit);
+            temp_game.eliminate(g);
+            int sc = temp_game.solve(1, limit);
 
             #pragma omp critical
             {
@@ -478,10 +493,6 @@ class Game {
 
   private:
     // bfs
-    /*
-    long long vis_flag = 0;
-    long long vis[MAX][MAX];
-    */
 
     GROUP bfs(int x, int y, bool vis[MAX][MAX], int vis_flag) const
     {
@@ -578,34 +589,38 @@ int main(int argc, char *argv[])
     }
 
 
-    int score = 0;
+    printf("Search depth: %d\n", depth);
+
+    game.pretty_print();
+
     while (true)
     {
         struct timespec start, finish;
 
         clock_gettime(CLOCK_MONOTONIC, &start);
 
-        printf("Step %d: %d\n", game.step, score);
-        game.pretty_print();
-
-        GROUP action;
-
-        //int predict = game.solve(0, 5 + max(game.step - 10, 0), &action);
-        int predict = game.parallel_solve(depth + max(game.step - 8, 0), &action);
+        game.parallel_solve(depth + max(game.step - 7, 0));
 
         clock_gettime(CLOCK_MONOTONIC, &finish);
 
         double elapsed = (finish.tv_sec - start.tv_sec) + (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
-        dump(elapsed, action, predict, score + predict);
+
+        GROUP action = global_best_actions[game.step];
+        dump(elapsed, global_best_score, action);
 
         if (action.size() == 0)
         {
             // game is end
-            score += game.cal_end();
             break;
         }
-        score += game.eliminate(action);
+
+        printf("Step %d: \n", game.step);
+        game.pretty_print(action);
+        game.eliminate(action);
+        printf("score --> %d\n\n", game.currect_score());
     }
+
+    int score = game.currect_score() + game.cal_end();
     printf("End Step %d: %d\n", game.step, score);
 }
 
