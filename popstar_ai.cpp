@@ -107,7 +107,7 @@ ostream& operator <<(ostream &s, const unordered_map<A,B> &c) { return _out(s,AL
 
 const int EMPTY = 0;
 
-const int DIRATION[4][2] = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
+const int DIRATIONS[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
 
 const char SYMBOL_SET[] = ".rgbyp";
 const int ASCII_COLOR[] = {40, 41, 42, 44, 43, 45};
@@ -509,8 +509,8 @@ class Game {
 
             for (int d = 0; d < 4; ++d)
             {
-                int a = FST(p) + DIRATION[d][0];
-                int b = SND(p) + DIRATION[d][1];
+                int a = FST(p) + DIRATIONS[d][0];
+                int b = SND(p) + DIRATIONS[d][1];
 
                 if (0 <= a and a < MAX and 0 <= b and b < MAX
                     and vis[a][b] != vis_flag and mp[x][y] == mp[a][b])
