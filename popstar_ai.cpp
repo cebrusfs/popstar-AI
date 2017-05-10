@@ -120,9 +120,6 @@ const int EMPTY = 0;
 
 const int DIRATIONS[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
 
-
-
-
 /*
 typedef vector<PII> GROUP;
 #define PACK(x, y) (MP(x, y))
@@ -137,6 +134,9 @@ typedef pair<int, GROUP> COLOR_GROUP;
 
 typedef pair<long long, long long> HASH;
 
+/*
+ * heuristic
+*/
 auto generate_strategies()
 {
     vector< function<GROUP(const vector<COLOR_GROUP>&)> > funcs;
@@ -170,7 +170,6 @@ auto generate_strategies()
 
     return funcs;
 }
-
 const auto strategies = generate_strategies();
 
 
@@ -188,7 +187,6 @@ inline bool move_down(char col[])
     return real_r == MAX - 1;
 }
 
-
 #include <boost/functional/hash.hpp>
 struct pair_hash {
     auto operator () (const auto &p) const {
@@ -202,6 +200,11 @@ struct pair_hash {
 class Game {
   public:
     int step;
+
+    array<GROUP, MAX*MAX> global_best_actions;
+    int global_best_score;
+
+  private:
     char raw[MAX*MAX][MAX][MAX];
 
     // MAX*MAX x MAX pointer
@@ -214,9 +217,7 @@ class Game {
     GROUP actions[MAX*MAX];
     int history_score[MAX*MAX];
 
-    array<GROUP, MAX*MAX> global_best_actions;
-    int global_best_score;
-
+  public:
     Game () {
         step = 0;
         mp = NULL;
@@ -224,6 +225,9 @@ class Game {
         global_best_score = 0;
     }
 
+    /*
+     * Input
+     */
     void generate()
     {
         printf("[*] Get random map\n");
@@ -233,12 +237,8 @@ class Game {
             for (int c = 0; c < MAX; ++c)
                 raw[0][c][r] = 1 + rand() % COLOR_MAX;
 
-        for (int c = 0; c < MAX; ++c)
-            history[0][c] = raw[0][c];
-
-        mp = history[0];
+        init();
     }
-
     void stdin_input()
     {
         printf("[*] Get map from stdin\n");
@@ -246,6 +246,7 @@ class Game {
         assert(f != NULL);
         parse_input(f);
     }
+
     void file_input(char filename[])
     {
         printf("[*] Get map from file: %s\n", filename);
@@ -254,6 +255,7 @@ class Game {
         parse_input(f);
         fclose(f);
     }
+
 
     int currect_score() const
     {
@@ -353,19 +355,6 @@ class Game {
         return max(2000 - cnt * cnt * 20, 0);
     }
 
-    void update_best()
-    {
-        int score = currect_score() + cal_end();
-
-        if (score > global_best_score)
-        {
-            global_best_score = score;
-            for (int i = 0; i < step; ++i)
-                global_best_actions[i] = actions[i];
-            global_best_actions[step].clear();
-        }
-    }
-
     void h_func()
     {
         int currect_step = step;
@@ -433,8 +422,9 @@ class Game {
             const auto& g = gs[i];
             assert(g.second.size() >= 2);
 
+            hash_table.clear();
+
             Game temp_game = *this;
-            temp_game.hash_table.clear();
 
             temp_game.eliminate(g.second);
             temp_game.solve(1, limit);
@@ -451,6 +441,29 @@ class Game {
     }
 
   private:
+    void init()
+    {
+        step = 0;
+        for (int c = 0; c < MAX; ++c)
+            history[0][c] = raw[0][c];
+
+        mp = history[0];
+    }
+
+    void update_best()
+    {
+        int score = currect_score() + cal_end();
+
+        if (score > global_best_score)
+        {
+            global_best_score = score;
+            for (int i = 0; i < step; ++i)
+                global_best_actions[i] = actions[i];
+            global_best_actions[step].clear();
+        }
+    }
+
+
     void parse_input(FILE* f)
     {
         for (int r = 0; r < MAX; ++r)
@@ -468,11 +481,7 @@ class Game {
                 raw[0][c][r] = ptr - COLOR_SYMBOL;
             }
 
-        step = 0;
-        for (int c = 0; c < MAX; ++c)
-            history[0][c] = raw[0][c];
-
-        mp = history[0];
+        init();
     }
 
     // bfs
