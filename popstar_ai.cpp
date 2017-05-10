@@ -207,10 +207,7 @@ class Game {
   private:
     char raw[MAX*MAX][MAX][MAX];
 
-    // MAX*MAX x MAX pointer
-    char *history[MAX*MAX][MAX];
-
-    char **mp;
+    char (*mp)[MAX];
 
     unordered_set<HASH, pair_hash> hash_table;
 
@@ -246,7 +243,6 @@ class Game {
         assert(f != NULL);
         parse_input(f);
     }
-
     void file_input(char filename[])
     {
         printf("[*] Get map from file: %s\n", filename);
@@ -272,27 +268,14 @@ class Game {
         for (const auto& p : group)
             used[FST(p)] = true;
 
-        // copy ptr
-        static_assert(sizeof(history[step]) == sizeof(char*) * MAX);
-        memcpy(history[step+1], history[step], sizeof(history[step]));
-
-        // copy on write
-        for (int c = 0; c < MAX; ++c)
-            if (used[c])
-            {
-                static_assert(sizeof(raw[step + 1][c]) == sizeof(char) * MAX);
-
-                // find a new place
-                history[step + 1][c] = raw[step + 1][c];
-                // copy
-                memcpy(history[step + 1][c], history[step][c], sizeof(raw[step + 1][c]));
-            }
+        static_assert(sizeof(raw[step]) == MAX * MAX * sizeof(char));
+        memcpy(raw[step + 1], raw[step], sizeof(raw[step]));
 
         // copied, and step forward!
         actions[step] = group;
         history_score[step + 1] = currect_score() + add;
         step += 1;
-        mp = history[step];
+        mp = raw[step];
 
         // eliminate on new copy
         for (const auto& p : group)
@@ -311,11 +294,15 @@ class Game {
             if (used[c] and is_empty[c])
                 empty_col = mp[c];
             else
-                mp[real_c++] = mp[c];
+                //mp[real_c++] = mp[c];
+                //static_assert(sizeof(char) * MAX == sizeof(mp[c]));
+                memcpy(mp[real_c++], mp[c], sizeof(mp[c]));
         }
         assert((real_c < MAX and empty_col != NULL) or real_c == MAX);
         for (int c = real_c; c < MAX; ++c)
-            mp[c] = empty_col;
+            //mp[c] = empty_col;
+            //static_assert(sizeof(char) * MAX == sizeof(mp[c]));
+            memset(mp[c], 0, sizeof(char) * MAX);
 
         return add;
     }
@@ -323,7 +310,7 @@ class Game {
     void recover(int to_step)
     {
         step = to_step;
-        mp = history[step];
+        mp = raw[step];
     }
 
     void pretty_print(const GROUP &g = GROUP()) const
@@ -444,10 +431,13 @@ class Game {
     void init()
     {
         step = 0;
+        /*
         for (int c = 0; c < MAX; ++c)
             history[0][c] = raw[0][c];
 
         mp = history[0];
+        */
+        mp = raw[0];
     }
 
     void update_best()
