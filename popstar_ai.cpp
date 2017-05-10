@@ -96,7 +96,7 @@ ostream& operator <<(ostream &s, const unordered_map<A,B> &c) { return _out(s,AL
 
 #define MAX 10
 #define COLOR_MAX 5
-#define RANDOM_TIME 5
+#define RANDOM_TIME 4
 
 
 // Bonus = 2000 - Blocks^2 * 20
@@ -188,6 +188,17 @@ inline bool move_down(char col[])
     return real_r == MAX - 1;
 }
 
+
+#include <boost/functional/hash.hpp>
+struct pair_hash {
+    auto operator () (const auto &p) const {
+        std::size_t seed = 0;
+        boost::hash_combine(seed, p.first);
+        boost::hash_combine(seed, p.second);
+        return seed;
+    }
+};
+
 class Game {
   public:
     int step;
@@ -198,7 +209,7 @@ class Game {
 
     char **mp;
 
-    set<HASH> hash_table;
+    unordered_set<HASH, pair_hash> hash_table;
 
     GROUP actions[MAX*MAX];
     int history_score[MAX*MAX];
