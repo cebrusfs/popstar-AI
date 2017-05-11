@@ -6,38 +6,69 @@ from PIL import Image, ImageFilter
 if len(sys.argv) > 1:
     path = sys.argv[1]
 else:
-    path = 'IMG_4987.PNG'
+    #path = './IMG_4990.PNG'
+    path = './2017-05-11.jpg'
+
+sizedict = {
+    (640, 1136): {
+        'crop_hight': 498,
+        'width': 64,
+    },
+    (750, 1334): {
+        'crop_hight': 584,
+        'width': 75,
+    },
+}
+
 
 
 im = Image.open(path)
-#print im.size
+setting = sizedict[im.size]
 
-im = im.crop((0, 498, im.size[0], im.size[1]))
-#im.save("test.bmp")
+im = im.crop((0, setting['crop_hight'], im.size[0], im.size[1]))
+im.save("test.bmp")
 
 mp = []
+width = setting['width']
+offset = width / 2
+
+rules = {
+    # r, g, b
+    (200, None, 200): 'p',
+    (200, -100, -100): 'r',
+    (150, 100, -100): 'y',
+    (-50, 200, -50): 'g',
+    (-100, 100, 200): 'b',
+}
+
+def check(rule, color):
+    #print rule, color
+    for r, c in zip(rule, color):
+        if r is None: continue
+
+        rr = abs(r)
+        if r > 0 and not c > rr:
+            return False
+        if r < 0 and not c < rr:
+            return False
+
+    #print 'good'
+    return True
+
+
 for i in range(10):
     s = ''
     for j in range(10):
-        xy = (64 * j + 32, 64 * i + 32)
+        xy = (width * j + offset, width * i + offset)
         c = im.getpixel(xy)
 
-        r, g, b = c
+        result = [val for rule, val in rules.items() if check(rule, c)]
 
-        if r > 150 and g > 150:
-            c = 'y'
-        elif b > 200 and g > 100:
-            c = 'b'
-        elif r > 200 and b > 150:
-            c = 'p'
-        elif r > 230 and b < 150:
-            c = 'r'
-        elif g > 200:
-            c = 'g'
-        else:
+        if not result or len(result) > 1:
+            print i, j, c, result
             assert False
 
-        s += c
+        s += result[0]
         #print c,
     mp.append(s)
     #print ''

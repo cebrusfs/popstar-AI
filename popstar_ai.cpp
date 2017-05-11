@@ -350,7 +350,7 @@ class Game {
         {
             while (true)
             {
-                const auto gs = get_color_groups();
+                const auto& gs = get_color_groups();
                 if (gs.empty()) break;
 
                 const auto& p = strategy(gs);
@@ -401,6 +401,7 @@ class Game {
 
     void parallel_solve(int limit)
     {
+        hash_table.clear();
         const auto& gs = get_color_groups();
 
         #pragma omp parallel for schedule(dynamic)
@@ -409,8 +410,6 @@ class Game {
             const auto& g = gs[i];
             assert(g.second.size() >= 2);
 
-            hash_table.clear();
-
             Game temp_game = *this;
 
             temp_game.eliminate(g.second);
@@ -418,6 +417,9 @@ class Game {
 
             #pragma omp critical
             {
+                //dump(i);
+                hash_table.merge(temp_game.hash_table);
+
                 if (temp_game.global_best_score > global_best_score)
                 {
                     global_best_score = temp_game.global_best_score;
@@ -475,7 +477,7 @@ class Game {
     }
 
     // bfs
-    GROUP bfs(int x, int y, bool vis[MAX][MAX], int vis_flag) const
+    inline GROUP bfs(int x, int y, bool vis[MAX][MAX], int vis_flag) const
     {
         GROUP q;
         q.reserve(32);
@@ -504,10 +506,11 @@ class Game {
         return q;
     }
 
-    vector<COLOR_GROUP> get_color_groups(bool all=false) const
+    vector<COLOR_GROUP> groups[MAX*MAX];
+    inline const vector<COLOR_GROUP>& get_color_groups(bool all=false)
     {
-        vector<COLOR_GROUP> ret;
-        ret.reserve(128);
+        auto& ret = groups[step];
+        ret.clear();
 
         bool vis[MAX][MAX];
         memset(vis, 0, sizeof(vis));
@@ -519,7 +522,7 @@ class Game {
                 {
                     const auto& group = bfs(c, r, vis, vis_flag);
                     if (all or group.size() >= 2)
-                        ret.emplace_back(mp[c][r], move(group));
+                        ret.emplace_back(mp[c][r], group);
                 }
         return ret;
     }
@@ -533,10 +536,10 @@ class Game {
         // 0 ~ 5
         for (int c = 0; c < MAX; ++c)
             for (int r = 0; r < MAX; ++r)
+            {
                 h1 = (h1 * 6 + mp[c][r]) % MOD1;
-        for (int c = 0; c < MAX; ++c)
-            for (int r = 0; r < MAX; ++r)
                 h2 = (h2 * 6 + mp[c][r]) % MOD2;
+            }
         return MP(h1, h2);
     }
 
@@ -552,8 +555,7 @@ int main(int argc, char *argv[])
     {
         if (strcmp(argv[1], "-") == 0)
         {
-            srand(514514);
-            game.generate();
+            game.stdin_input();
         }
         else
         {
@@ -562,18 +564,19 @@ int main(int argc, char *argv[])
     }
     else
     {
-        game.stdin_input();
+        srand(514514);
+        game.generate();
     }
 
     int depth = 5;
     if (getenv("depth") != NULL)
-    {
         depth = atoi(getenv("depth"));
-    }
-
-
     printf("Search depth: %d\n", depth);
 
+
+    /*
+     * start
+     */
     game.pretty_print();
 
     while (true)
@@ -582,7 +585,14 @@ int main(int argc, char *argv[])
 
         clock_gettime(CLOCK_MONOTONIC, &start);
 
-        game.parallel_solve(depth + max(game.step - 7, 0));
+        int real_depth = depth;
+        if (game.step > 10)
+            real_depth += game.step - 10;
+        if (game.step > 6)
+            real_depth += game.step - 6;
+
+        dump(game.step, real_depth);
+        game.parallel_solve(real_depth);
 
         clock_gettime(CLOCK_MONOTONIC, &finish);
 
