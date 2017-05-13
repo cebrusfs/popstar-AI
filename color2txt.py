@@ -26,7 +26,7 @@ im = Image.open(path)
 setting = sizedict[im.size]
 
 im = im.crop((0, setting['crop_hight'], im.size[0], im.size[1]))
-im.save("test.bmp")
+#im.save("test.bmp")
 
 mp = []
 width = setting['width']

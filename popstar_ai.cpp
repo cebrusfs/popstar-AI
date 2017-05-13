@@ -96,8 +96,6 @@ ostream& operator <<(ostream &s, const unordered_map<A,B> &c) { return _out(s,AL
 
 #define MAX 10
 #define COLOR_MAX 5
-#define RANDOM_TIME 4
-
 
 // Bonus = 2000 - Blocks^2 * 20
 // score = block^2 * 5
@@ -141,6 +139,7 @@ auto generate_strategies()
 {
     vector< function<GROUP(const vector<COLOR_GROUP>&)> > funcs;
 
+    // full greedy
     for (int color = 0; color <= 5; ++color)
     {
         auto cmp = [color](const COLOR_GROUP& a, const COLOR_GROUP& b)
@@ -159,6 +158,88 @@ auto generate_strategies()
         funcs.emplace_back(choose);
     }
 
+    // greedy with random
+    for (int color = 0; color <= 5; ++color)
+    {
+        auto cmp = [color](const COLOR_GROUP& a, const COLOR_GROUP& b)
+        {
+            if (a.first == color and b.first != color)
+                return false;
+            if (a.first != color and b.first == color)
+                return true;
+            return a.second.size() < b.second.size();
+        };
+        auto choose1 = [cmp](const auto& gs)
+        {
+            // high random (even)
+            if (rand() % 1000 < 300)
+            {
+                const auto& p = gs[rand() % gs.size()];
+                return p.second;
+            }
+            else
+            {
+                const auto& p = *min_element(gs.begin(), gs.end(), cmp);
+                return p.second;
+            }
+        };
+        funcs.emplace_back(choose1);
+
+        // 250 > 125 > 350
+        auto choose2 = [cmp](const auto& gs)
+        {
+            // low random (odd)
+            if (rand() % 1000 < 125)
+            {
+                const auto& p = gs[rand() % gs.size()];
+                return p.second;
+            }
+            else
+            {
+                const auto& p = *min_element(gs.begin(), gs.end(), cmp);
+                return p.second;
+            }
+        };
+        funcs.emplace_back(choose2);
+    }
+
+    // new greedy
+    /*
+    {
+        auto cmp1 = [](const COLOR_GROUP& a, const COLOR_GROUP& b)
+        {
+            return a.second.size() < b.second.size();
+        };
+        auto choose = [cmp1](const auto& gs)
+        {
+            const auto& ma = *max_element(gs.begin(), gs.end(), cmp1);
+            int color = ma.first;
+
+            auto cmp2 = [color](const COLOR_GROUP& a, const COLOR_GROUP& b)
+            {
+                if (a.first == color and b.first != color)
+                    return false;
+                if (a.first != color and b.first == color)
+                    return true;
+                return a.second.size() < b.second.size();
+            };
+
+            // low random (even)
+            if (rand() % 1000 < 125)
+            {
+                const auto& p = gs[rand() % gs.size()];
+                return p.second;
+            }
+            else
+            {
+                const auto& p = *min_element(gs.begin(), gs.end(), cmp2);
+                return p.second;
+            }
+        };
+        funcs.emplace_back(choose);
+    }
+    */
+    /*
     auto random_choice = [](const auto& gs)
     {
         const auto& p = gs[rand() % gs.size()];
@@ -167,7 +248,7 @@ auto generate_strategies()
 
     for (int i = 0; i < RANDOM_TIME; ++i)
         funcs.push_back(random_choice);
-
+    */
     return funcs;
 }
 const auto strategies = generate_strategies();
@@ -203,6 +284,7 @@ class Game {
 
     array<GROUP, MAX*MAX> global_best_actions;
     int global_best_score;
+    bool global_changed;
 
   private:
     char raw[MAX*MAX][MAX][MAX];
@@ -220,6 +302,7 @@ class Game {
         mp = NULL;
         history_score[0] = 0;
         global_best_score = 0;
+        global_changed = true;
     }
 
     /*
@@ -346,8 +429,10 @@ class Game {
     {
         int currect_step = step;
 
-        for (const auto& strategy : strategies)
+        for (int i = global_changed ? 0 : 6; i < (int)strategies.size(); ++i)
+        //for (const auto& strategy : strategies)
         {
+            const auto& strategy = strategies[i];
             while (true)
             {
                 const auto& gs = get_color_groups();
@@ -357,10 +442,67 @@ class Game {
                 eliminate(p);
             }
 
+            /*
+            int score = currect_score() + cal_end();
+            if (score > global_best_score)
+                dump(i, score);
+            */
+
             update_best();
 
             recover(currect_step);
         }
+
+        /*
+        auto cmp_size = [](const COLOR_GROUP& a, const COLOR_GROUP& b)
+        {
+            return a.second.size() < b.second.size();
+        };
+        {
+            while (true)
+            {
+                const auto& gs = get_color_groups();
+                if (gs.empty()) break;
+
+                int best_sz = -1;
+                GROUP best_action;
+
+                int tmp_step = step;
+
+                for (const auto& p : gs)
+                {
+                    eliminate(p.second);
+
+                    const auto& new_gs = get_color_groups();
+                    if (new_gs.empty())
+                    {
+                        best_action = p.second;
+                        break;
+                    }
+
+                    int new_sz = max_element(gs.begin(), gs.end(), cmp_size)->second.size();
+                    if (new_sz > best_sz)
+                    {
+                        best_sz = new_sz;
+                        best_action = p.second;
+                    }
+
+                    recover(tmp_step);
+                }
+
+                recover(tmp_step);
+                eliminate(best_action);
+            }
+
+            int score = currect_score() + cal_end();
+            if (score > global_best_score)
+                dump("new_greedy", score);
+
+            update_best();
+
+            recover(currect_step);
+        }
+        */
     }
 
     void solve(int dep, int limit)
@@ -403,6 +545,7 @@ class Game {
     {
         hash_table.clear();
         const auto& gs = get_color_groups();
+        dump(gs.size());
 
         #pragma omp parallel for schedule(dynamic)
         for (int i = 0; i < (int)gs.size(); ++i)
@@ -462,7 +605,8 @@ class Game {
             for (int c = 0; c < MAX; ++c)
             {
                 char ch;
-                fscanf(f, " %c", &ch);
+                int ret = fscanf(f, " %c", &ch);
+                assert(ret == 1);
                 auto ptr = strchr(COLOR_SYMBOL, ch);
 
                 if (ptr == NULL)
@@ -549,7 +693,6 @@ class Game {
 int main(int argc, char *argv[])
 {
     Game game;
-    srand(time(NULL));
 
     if (argc == 2)
     {
@@ -567,6 +710,8 @@ int main(int argc, char *argv[])
         srand(514514);
         game.generate();
     }
+
+    srand(time(NULL));
 
     int depth = 5;
     if (getenv("depth") != NULL)
@@ -591,8 +736,11 @@ int main(int argc, char *argv[])
         if (game.step > 6)
             real_depth += game.step - 6;
 
-        dump(game.step, real_depth);
+        dump(game.step, real_depth, game.global_changed);
+
+        int best = game.global_best_score;
         game.parallel_solve(real_depth);
+        game.global_changed = game.global_best_score != best;
 
         clock_gettime(CLOCK_MONOTONIC, &finish);
 
