@@ -268,14 +268,24 @@ inline bool move_down(char col[])
     return real_r == MAX - 1;
 }
 
-#include <boost/functional/hash.hpp>
-struct pair_hash {
-    auto operator () (const auto &p) const {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, p.first);
-        boost::hash_combine(seed, p.second);
-        return seed;
-    }
+// make pair is hashable
+template<typename a, typename b>
+struct hash< std::pair<a, b> > {
+    private:
+        const hash<a> ah;
+        const hash<b> bh;
+    public:
+        hash() : ah(), bh() {}
+        size_t operator()(const std::pair<a, b> &p) const {
+            const size_t magic = 0x9e3779b9;
+
+            size_t seed = 0;
+
+            seed ^= ah(p.first) + magic;
+            seed ^= bh(p.second) + magic + (seed<<6) + (seed>>2);
+
+            return seed;
+        }
 };
 
 class Game {
@@ -291,7 +301,7 @@ class Game {
 
     char (*mp)[MAX];
 
-    unordered_set<HASH, pair_hash> hash_table;
+    unordered_set<HASH> hash_table;
 
     GROUP actions[MAX*MAX];
     int history_score[MAX*MAX];

@@ -346,6 +346,7 @@ class Game {
             }
 
         init();
+    }
 
 };
 
@@ -381,7 +382,12 @@ int main(int argc, char *argv[])
     {
         int r, c;
 
-        printf("---------------------\nStep %d: score %d\n", game.step, game.currect_score());
+        printf(
+            "---------------------\n"
+            "Step %d: score %d\n",
+            game.step,
+            game.currect_score()
+        );
         game.pretty_print();
 
         printf("\n> ");
