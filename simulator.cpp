@@ -1,6 +1,19 @@
 // @author cebrusfs
 // headers {{{
-#include<bits/stdc++.h>
+#include<cstdlib>
+#include<cmath>
+#include<cassert>
+#include<cstring>
+
+#include<iostream>
+#include<algorithm>
+#include<array>
+#include<map>
+#include<set>
+#include<vector>
+#include<unordered_map>
+#include<unordered_set>
+#include<functional>
 using namespace std;
 // }}}
 // macros {{{
@@ -43,9 +56,30 @@ const double eps = 1e-7;
 typedef tuple<int, int> TII;
 
 // dump() {{{
+template<typename Iter>
+ostream& _out(ostream &s, Iter b, Iter e) {
+    s << "[";
+    for (auto it = b; it != e; it++) s << (it == b ? "":" ") << *it;
+    s << "]";
+    return s;
+}
+
+template<typename A, typename B>
+ostream& operator <<(ostream &s, const pair<A,B> &p) { return s<<"("<<p.first<<","<<p.second<<")"; }
+template<typename T>
+ostream& operator <<(ostream &s, const vector<T> &c) { return _out(s,ALL(c)); }
+template<typename T>
+ostream& operator <<(ostream &s, const set<T> &c) { return _out(s,ALL(c)); }
+template<typename T>
+ostream& operator <<(ostream &s, const unordered_set<T> &c) { return _out(s,ALL(c)); }
+template<typename A, typename B>
+ostream& operator <<(ostream &s, const map<A,B> &c) { return _out(s,ALL(c)); }
+template<typename A, typename B>
+ostream& operator <<(ostream &s, const unordered_map<A,B> &c) { return _out(s,ALL(c)); }
+
 template<typename T>
 void _dump(const char* s, T&& head) {
-    cerr<< s << "=" << head << endl;
+    cerr << s << "=" << head << endl;
 }
 
 template<typename T, typename... Args>
@@ -68,27 +102,6 @@ void _dump(const char* s, T&& head, Args&&... tail) {
 #else
 #define dump(...) ;
 #endif
-
-template<typename Iter>
-ostream& _out(ostream &s, Iter b, Iter e) {
-    s << "[";
-    for (auto it = b; it != e; it++) s << (it == b ? "":" ") << *it;
-    s << "]";
-    return s;
-}
-
-template<typename A, typename B>
-ostream& operator <<(ostream &s, const pair<A,B> &p) { return s<<"("<<p.first<<","<<p.second<<")"; }
-template<typename T>
-ostream& operator <<(ostream &s, const vector<T> &c) { return _out(s,ALL(c)); }
-template<typename T>
-ostream& operator <<(ostream &s, const set<T> &c) { return _out(s,ALL(c)); }
-template<typename T>
-ostream& operator <<(ostream &s, const unordered_set<T> &c) { return _out(s,ALL(c)); }
-template<typename A, typename B>
-ostream& operator <<(ostream &s, const map<A,B> &c) { return _out(s,ALL(c)); }
-template<typename A, typename B>
-ostream& operator <<(ostream &s, const unordered_map<A,B> &c) { return _out(s,ALL(c)); }
 // }}}
 
 #endif

@@ -1,8 +1,22 @@
 // @author cebrusfs
 // headers {{{
-#include<bits/stdc++.h>
+#include<cstdlib>
+#include<cmath>
+#include<cassert>
+#include<cstring>
+
+#include<iostream>
+#include<algorithm>
+#include<array>
+#include<map>
+#include<set>
+#include<vector>
+#include<unordered_map>
+#include<unordered_set>
+#include<functional>
 using namespace std;
 // }}}
+
 // macros {{{
 #define ALL(x) (x).begin(), (x).end()
 #define SZ(x) ((int)(x).size())
@@ -43,9 +57,30 @@ const double eps = 1e-7;
 typedef tuple<int, int> TII;
 
 // dump() {{{
+template<typename Iter>
+ostream& _out(ostream &s, Iter b, Iter e) {
+    s << "[";
+    for (auto it = b; it != e; it++) s << (it == b ? "":" ") << *it;
+    s << "]";
+    return s;
+}
+
+template<typename A, typename B>
+ostream& operator <<(ostream &s, const pair<A,B> &p) { return s<<"("<<p.first<<","<<p.second<<")"; }
+template<typename T>
+ostream& operator <<(ostream &s, const vector<T> &c) { return _out(s,ALL(c)); }
+template<typename T>
+ostream& operator <<(ostream &s, const set<T> &c) { return _out(s,ALL(c)); }
+template<typename T>
+ostream& operator <<(ostream &s, const unordered_set<T> &c) { return _out(s,ALL(c)); }
+template<typename A, typename B>
+ostream& operator <<(ostream &s, const map<A,B> &c) { return _out(s,ALL(c)); }
+template<typename A, typename B>
+ostream& operator <<(ostream &s, const unordered_map<A,B> &c) { return _out(s,ALL(c)); }
+
 template<typename T>
 void _dump(const char* s, T&& head) {
-    cerr<< s << "=" << head << endl;
+    cerr << s << "=" << head << endl;
 }
 
 template<typename T, typename... Args>
@@ -68,27 +103,6 @@ void _dump(const char* s, T&& head, Args&&... tail) {
 #else
 #define dump(...) ;
 #endif
-
-template<typename Iter>
-ostream& _out(ostream &s, Iter b, Iter e) {
-    s << "[";
-    for (auto it = b; it != e; it++) s << (it == b ? "":" ") << *it;
-    s << "]";
-    return s;
-}
-
-template<typename A, typename B>
-ostream& operator <<(ostream &s, const pair<A,B> &p) { return s<<"("<<p.first<<","<<p.second<<")"; }
-template<typename T>
-ostream& operator <<(ostream &s, const vector<T> &c) { return _out(s,ALL(c)); }
-template<typename T>
-ostream& operator <<(ostream &s, const set<T> &c) { return _out(s,ALL(c)); }
-template<typename T>
-ostream& operator <<(ostream &s, const unordered_set<T> &c) { return _out(s,ALL(c)); }
-template<typename A, typename B>
-ostream& operator <<(ostream &s, const map<A,B> &c) { return _out(s,ALL(c)); }
-template<typename A, typename B>
-ostream& operator <<(ostream &s, const unordered_map<A,B> &c) { return _out(s,ALL(c)); }
 // }}}
 
 #endif
@@ -131,6 +145,29 @@ typedef pair<int, GROUP> COLOR_GROUP;
 #define SND(x) ((x) % 128)
 
 typedef pair<long long, long long> HASH;
+
+// make pair is hashable
+namespace std {
+    template<typename a, typename b>
+    struct hash< std::pair<a, b> > {
+        private:
+            const hash<a> ah;
+            const hash<b> bh;
+        public:
+            hash() : ah(), bh() {}
+            size_t operator()(const std::pair<a, b> &p) const {
+                const size_t magic = 0x9e3779b9;
+
+                size_t seed = 0;
+
+                seed ^= ah(p.first) + magic;
+                seed ^= bh(p.second) + magic + (seed<<6) + (seed>>2);
+
+                return seed;
+            }
+    };
+}
+
 
 /*
  * heuristic
@@ -267,26 +304,6 @@ inline bool move_down(char col[])
     // return true if empty column
     return real_r == MAX - 1;
 }
-
-// make pair is hashable
-template<typename a, typename b>
-struct hash< std::pair<a, b> > {
-    private:
-        const hash<a> ah;
-        const hash<b> bh;
-    public:
-        hash() : ah(), bh() {}
-        size_t operator()(const std::pair<a, b> &p) const {
-            const size_t magic = 0x9e3779b9;
-
-            size_t seed = 0;
-
-            seed ^= ah(p.first) + magic;
-            seed ^= bh(p.second) + magic + (seed<<6) + (seed>>2);
-
-            return seed;
-        }
-};
 
 class Game {
   public:
@@ -556,8 +573,9 @@ class Game {
         hash_table.clear();
         const auto& gs = get_color_groups();
         dump(gs.size());
-
+#if defined(_OPENMP)
         #pragma omp parallel for schedule(dynamic)
+#endif
         for (int i = 0; i < (int)gs.size(); ++i)
         {
             const auto& g = gs[i];
@@ -568,10 +586,16 @@ class Game {
             temp_game.eliminate(g.second);
             temp_game.solve(1, limit);
 
+#if defined(_OPENMP)
             #pragma omp critical
+#endif
             {
-                //dump(i);
+#ifdef __cpp_lib_node_extract
                 hash_table.merge(temp_game.hash_table);
+#else
+                for (const auto& ele: temp_game.hash_table)
+                    hash_table.insert(ele);
+#endif
 
                 if (temp_game.global_best_score > global_best_score)
                 {
